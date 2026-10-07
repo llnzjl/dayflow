@@ -18,7 +18,7 @@ The SQLite database is created automatically at `./data/dateflow.db` (delete `da
 If `npm install` fails building `better-sqlite3` on Windows/ARM, install the "Desktop development with C++" build tools (or Python + Xcode CLT on macOS) and retry.
 
 ## What is real vs demo
-| Area | Status |
+| Area | Status |  
 |---|---|
 | Auth (scrypt passwords, httpOnly session cookie, rate limits, password reset, export, delete) | Real, stored in SQLite |
 | Dietary/religious profile | Real, AES-256-GCM encrypted with `APP_SECRET`; saved only with consent |
