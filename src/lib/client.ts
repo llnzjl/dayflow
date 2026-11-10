@@ -8,6 +8,10 @@ const PREF = "dateflow:prefs";
 const EMPTY: Store = { session: false, user: null, profile: null, plans: [], history: [], savedPlaces: [], feedback: {}, memories: [], onboarded: false, dark: false, brand: "Coral" };
 
 export async function api<T = any>(url: string, body?: unknown, method?: string): Promise<T> {
+  if (process.env.NEXT_PUBLIC_PAGES_PREVIEW === "true") {
+    const { previewApi } = await import("./pages-preview");
+    return previewApi(url, body, method);
+  }
   const r = await fetch(url, body !== undefined || method ? { method: method ?? "POST", headers: { "Content-Type": "application/json" }, body: body !== undefined ? JSON.stringify(body) : undefined } : undefined);
   const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || "Request failed"); return j;
 }
@@ -65,7 +69,7 @@ export function useStore() {
         return ch ? { ...p, plans: [...next, ...pending] } : p; }); } catch {} };
     const iv = setInterval(tick, 20000); document.addEventListener("visibilitychange", tick); return () => { clearInterval(iv); document.removeEventListener("visibilitychange", tick); };
   }, [s.session]);
-  const track = useCallback((name: string) => { fetch("/api/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }).catch(() => {}); }, []);
+  const track = useCallback((name: string) => { api("/api/events", { name }).catch(() => {}); }, []);
   const logout = useCallback(async () => { await api("/api/auth/logout", {}); loaded.current = false; setS((p) => ({ ...EMPTY, dark: p.dark, brand: p.brand })); }, []);
   return { s, ready, update, track, reload: load, logout };
 }

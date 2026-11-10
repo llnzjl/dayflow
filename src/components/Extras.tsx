@@ -28,6 +28,7 @@ export function SharePanel({ plan, onLeave }: { plan: Itinerary; onLeave: () => 
   useEffect(() => { load(); }, [plan.id]); // eslint-disable-line
   const add = async () => { setErr(""); try { await api(`/api/plans/${plan.id}/share`, { email, role: r, etaSharing: eta }); setEmail(""); load(); } catch (e: any) { setErr(e.message); } };
   const rm = async (em: string) => { await api(`/api/plans/${plan.id}/share?email=${encodeURIComponent(em)}`, undefined, "DELETE"); load(); };
+  if (process.env.NEXT_PUBLIC_PAGES_PREVIEW === "true") return <section className="card p-5"><h2 className="font-semibold">Share this plan</h2><p className="mt-2 text-sm text-muted">Sharing needs the hosted app. This preview saves plans only in your browser.</p></section>;
   return (<section className="card p-5"><h2 className="font-semibold">Share this plan</h2>
     <p className="mt-1 text-xs text-muted">Shared people see the schedule, places, routes, costs, reservations and changes. They never see your location. Live ETA sharing shows only your schedule status, current/next stop name and an arrival time — and only to people you switch it on for.</p>
     {role !== "owner" && <p className="mt-2 text-sm">Your role: <b>{role}</b> · shared by {plan.ownerName} <button className="ml-2 text-xs text-bad underline" onClick={async () => { await api(`/api/plans/${plan.id}/share`, undefined, "DELETE"); onLeave(); }}>Leave plan</button></p>}
@@ -46,6 +47,7 @@ export function LiveBanner({ live, owner }: { live?: LiveStatus | null; owner?: 
 export function ReportButton({ placeId }: { placeId: string }) {
   const [open, setOpen] = useState(false); const [type, setType] = useState("halal"); const [note, setNote] = useState(""); const [msg, setMsg] = useState("");
   const send = async () => { try { await api("/api/reports", { placeId, type, note }); setMsg("Thanks — sent to our moderators."); setOpen(false); } catch (e: any) { setMsg(e.message); } };
+  if (process.env.NEXT_PUBLIC_PAGES_PREVIEW === "true") return null;
   return (<span className="inline-flex flex-col gap-2"><button className="btn-ghost !px-3 !py-1" onClick={() => setOpen(!open)}>⚑ Report outdated info</button>
     {open && <span className="flex flex-wrap gap-2"><select className="input !w-auto !py-1" value={type} onChange={(e) => setType(e.target.value)}>{[["halal", "Halal info"], ["vegan", "Vegan info"], ["price", "Price"], ["hours", "Opening hours"], ["closed", "Closed"], ["other", "Other"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
       <input className="input !w-auto !py-1" placeholder="What's wrong?" value={note} onChange={(e) => setNote(e.target.value)} /><button className="btn-primary !px-3 !py-1" onClick={send}>Send</button></span>}

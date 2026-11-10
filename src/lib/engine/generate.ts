@@ -97,7 +97,7 @@ export async function generate(req: PlanRequest, ctx: GenCtx): Promise<{ itin: I
     );
 
     if (inCityPlaces.length < 8) {
-      try {
+      if (process.env.NEXT_PUBLIC_PAGES_PREVIEW !== "true") try {
         const { getAiCityRecommendations } = await import("./ai-places");
         const aiPlaces = await getAiCityRecommendations(cityOpt, req.vibes, ctx.diet);
         if (aiPlaces.length > 0) inCityPlaces.push(...aiPlaces);

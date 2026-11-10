@@ -17,6 +17,19 @@ export function Auth({ reload }: { reload: () => Promise<void> }) {
       if (kind === "reset") { await api("/api/auth/reset", { token, password: f.pw }); history.replaceState({}, "", "/"); setMode("login"); setMsg("Password updated. Log in with your new password."); }
     } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
   }
+  if (process.env.NEXT_PUBLIC_PAGES_PREVIEW === "true") return (
+    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 px-6 py-12">
+      <div className="text-sm font-semibold tracking-widest text-brand">{BRAND.name.toUpperCase()}</div>
+      <h1 className="text-4xl font-bold">Plan your next day out.</h1>
+      <p className="text-lg text-muted">Explore the planner with demo places and estimated routes. Your plans stay in this browser. No account or password needed.</p>
+      <button className="btn-primary w-full py-3.5" disabled={busy} onClick={async () => {
+        setBusy(true); setErr("");
+        try { await api("/api/auth/preview", {}); await reload(); }
+        catch (e: any) { setErr(e.message); } finally { setBusy(false); }
+      }}>Open planner</button>
+      {err && <p role="alert" className="text-bad">{err}</p>}
+      <p className="text-sm text-muted">Browser preview: accounts, sharing, online reservations and live alerts require the hosted app.</p>
+    </main>);
   if (mode === "welcome") return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-between px-6 py-12">
       <div><div className="text-sm font-semibold tracking-widest text-brand">{BRAND.name.toUpperCase()}</div>

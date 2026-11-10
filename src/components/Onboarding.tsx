@@ -32,9 +32,9 @@ export function Onboarding({ profile, done }: { profile: Profile; done: (p: Prof
       <input className="input mt-4" inputMode="numeric" placeholder="Custom amount (₩)" value={custom} onChange={(e) => { setCustom(e.target.value); const n = Number(e.target.value.replace(/\D/g, "")); if (n) setP({ ...p, defaultBudget: n }); }} /></>,
     <><h2 className="text-2xl font-bold">Privacy & permissions</h2>
       <div className="mt-4 divide-y divide-line">
-        <Toggle on={p.consentSensitive} set={(v) => setP({ ...p, consentSensitive: v })} label="Save dietary / religious settings to my profile" hint="Encrypted on our server. If off, they apply to this session only and you will need to set them again next time. You can delete them any time." />
+        <Toggle on={p.consentSensitive} set={(v) => setP({ ...p, consentSensitive: v })} label="Save dietary / religious settings to my profile" hint={process.env.NEXT_PUBLIC_PAGES_PREVIEW === "true" ? "Saved in this browser, without encryption. If off, these settings apply only to this session." : "Encrypted on our server. If off, they apply to this session only and you will need to set them again next time. You can delete them any time."} />
         {p.diet.muslim && <Toggle on={p.prayerAware} set={(v) => setP({ ...p, prayerAware: v })} label="Prayer-aware planning" hint="Adds prayer stops near Dhuhr/Asr and finds prayer spaces." />}
-        <Toggle on={p.notifications} set={(v) => setP({ ...p, notifications: v })} label="Useful notifications only" hint="Leave-now, delays, rain on outdoor stops." /></div>
+        {process.env.NEXT_PUBLIC_PAGES_PREVIEW !== "true" && <Toggle on={p.notifications} set={(v) => setP({ ...p, notifications: v })} label="Useful notifications only" hint="Leave-now, delays, rain on outdoor stops." />}</div>
       <p className="mt-3 text-xs text-muted">Location is only requested when you use “near me”, never shared with others without your explicit permission.</p></>,
   ];
   const finish = () => done(p.consentSensitive ? p : { ...p, diet: { ...p.diet }, });

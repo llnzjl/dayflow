@@ -48,6 +48,30 @@ Adding a provider: implement the interface in `src/lib/providers/types.ts`, regi
 Browser (Playwright) tests are **not** included; the UI has been type-checked and built but not click-tested by automation.
 
 ## Deploy
+### GitHub Pages
+
+The Pages app is published at https://llnzjl.github.io/dayflow/ by `.github/workflows/pages.yml`.
+In repository **Settings > Pages**, set **Source** to **GitHub Actions**. Push to `main`
+or run **Deploy Dayflow to GitHub Pages** from the Actions tab. Publishing the repository
+root directly with Jekyll renders this README instead of building the app.
+
+`npm run build:pages` exports the app to `out/`, with assets prefixed for the repository
+path and a `.nojekyll` file. `GITHUB_REPOSITORY` determines the path in CI; use
+`PAGES_BASE_PATH` to override it (empty for a custom domain). The build uses a temporary
+copy excluding server routes; the normal Next.js server build remains available.
+
+GitHub Pages serves static files only. This build offers a clearly labelled browser
+preview: no login required, demo venues and estimated travel, local plan creation,
+editing, budget optimization and browser storage. It does not provide accounts,
+cross-device sync, sharing, online reservations, live alerts or report submission.
+Dietary preferences are saved locally without encryption only when consent is enabled.
+Use the server deployment below for the complete app.
+
+To check the exported app in a real browser: `npx playwright install chromium`,
+then `npm run build:pages && npm run test:pages`.
+
+### Full app with a server
+
 SQLite needs a persistent disk, so use a VPS/container (Fly.io volume, Railway volume, Docker) rather than serverless:
 1. `npm ci && npm run build`, set env vars, mount a volume for `DATABASE_FILE` (e.g. `/data/dateflow.db`).
 2. `npm start` behind HTTPS (Caddy/nginx), `COOKIE_SECURE=1`.

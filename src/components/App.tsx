@@ -62,6 +62,7 @@ export function App() {
   const nav = (t: Tab) => { setTab(t); setOpenId(null); };
   return (
     <Motion>
+      {process.env.NEXT_PUBLIC_PAGES_PREVIEW === "true" && <p className="bg-warn/10 px-5 py-2 text-center text-sm text-warn">Browser preview · Demo places and estimated routes · Data saved only in this browser</p>}
       <div className="mx-auto flex min-h-screen max-w-6xl">
         <aside className="sticky top-0 hidden h-screen w-52 shrink-0 flex-col gap-1 p-5 md:flex"><div className="mb-6 text-lg font-bold text-brand">{BRAND.name}</div>
           {TABS.map(([t, l, e]) => <button key={t} onClick={() => nav(t)} className={`rounded-xl px-3 py-2.5 text-left text-sm font-medium ${tab === t ? "bg-brand/10 text-brand" : "text-muted hover:bg-line/40"}`}>{e} {l}</button>)}
@@ -76,7 +77,7 @@ export function App() {
                 try { localStorage.setItem("dateflow:lang", newLang); } catch {}
               }}
             />
-            <Bell />
+            {process.env.NEXT_PUBLIC_PAGES_PREVIEW !== "true" && <Bell />}
           </div>
           <AnimatePresence mode="wait"><Fade k={tab + openId}>
             {tab === "home" && !open && <Home s={s} info={info} go={go} openPlan={(id) => { setTab("plans"); setOpenId(id); }} start={(t) => setPlanner({ text: t })} />}
@@ -560,8 +561,8 @@ function ProfileTab({ s, profile, setProfile, update, logout, reload }: { s: Ret
       </div>
     </section>
     <section className="card p-5"><h2 className="font-semibold">Appearance</h2><div className="mt-2"><Toggle on={s.dark} set={(v) => update((x) => ({ ...x, dark: v }))} label="Dark mode" /></div><div className="mt-2 flex gap-2">{Object.entries(BRAND_COLORS).map(([n, c]) => <button key={n} aria-label={n} onClick={() => update((x) => ({ ...x, brand: n }))} className={`h-8 w-8 rounded-full border-2 ${s.brand === n ? "border-ink" : "border-transparent"}`} style={{ background: `rgb(${c})` }} />)}</div></section>
-    <section className="card p-5"><h2 className="font-semibold">Notifications & privacy</h2><div className="divide-y divide-line"><Toggle on={profile.notifications} set={(v) => setProfile({ ...profile, notifications: v })} label="Useful notifications only" /><Toggle on={profile.consentSensitive} set={(v) => setProfile({ ...profile, consentSensitive: v })} label="Remember dietary/religious settings" hint="Saved encrypted on the server. Off = kept only for this session" /></div>
+    <section className="card p-5"><h2 className="font-semibold">Notifications & privacy</h2><div className="divide-y divide-line">{process.env.NEXT_PUBLIC_PAGES_PREVIEW !== "true" && <Toggle on={profile.notifications} set={(v) => setProfile({ ...profile, notifications: v })} label="Useful notifications only" />}<Toggle on={profile.consentSensitive} set={(v) => setProfile({ ...profile, consentSensitive: v })} label="Remember dietary/religious settings" hint={process.env.NEXT_PUBLIC_PAGES_PREVIEW === "true" ? "Saved in this browser, without encryption. Off = kept only for this session" : "Saved encrypted on the server. Off = kept only for this session"} /></div>
       {s.memories.length > 0 && <div className="mt-3 text-sm"><b>Memories</b><ul className="mt-1 list-disc pl-5 text-muted">{s.memories.map((m) => <li key={m}>{m}</li>)}</ul><button className="mt-1 text-xs text-bad" onClick={() => update((x) => ({ ...x, memories: [], history: [] }))}>Clear memories & history</button></div>}
       <div className="mt-4 flex flex-wrap gap-2"><button className="btn-ghost" onClick={exportData}>Export my data</button><button className="btn-ghost" onClick={logout}>Log out</button>
-        <button className="btn-ghost !text-bad" onClick={async () => { if (confirm("Delete your account and all your data on the server? This cannot be undone.")) { await api("/api/auth/delete", {}); await reload(); } }}>Delete account</button></div></section></div>);
+        <button className="btn-ghost !text-bad" onClick={async () => { if (confirm(process.env.NEXT_PUBLIC_PAGES_PREVIEW === "true" ? "Delete all planner data saved in this browser? This cannot be undone." : "Delete your account and all your data on the server? This cannot be undone.")) { await api("/api/auth/delete", {}); await reload(); } }}>{process.env.NEXT_PUBLIC_PAGES_PREVIEW === "true" ? "Clear browser data" : "Delete account"}</button></div></section></div>);
 }
