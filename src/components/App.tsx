@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BRAND, BRAND_COLORS } from "@/lib/brand";
 import { api, useStore } from "@/lib/client";
+import { useTasks } from "@/lib/tasks";
+import type { ThemePreference } from "@/lib/client";
 import type { Itinerary, Place, Profile } from "@/lib/types";
 import { CITIES, getCityById } from "@/lib/providers/demo-data";
 import { fmt, toMin } from "@/lib/time";
@@ -15,9 +17,9 @@ import { PlanView } from "./PlanView";
 import { MapView } from "./MapView";
 import { Badge, Chip, Fade, Motion, Spinner, Toggle } from "./ui";
 import { Bell, LanguageToggle, ReportButton } from "./Extras";
+import { Workspace, CommandPalette, TaskDialog, type Tab } from "./Workspace";
+import { Dashboard, TasksView, CalendarView, AnalyticsView } from "./Dashboard";
 
-type Tab = "home" | "plans" | "explore" | "map" | "profile";
-const TABS: [Tab, string, string][] = [["home", "Home", "✨"], ["plans", "Plans", "🗓"], ["explore", "Explore", "🧭"], ["map", "Map", "🗺"], ["profile", "Profile", "👤"]];
 const VIBES = ["Romantic", "Relaxing", "Fun", "Fancy", "Creative", "Adventurous", "Food-focused", "Photography", "Nature", "Night", "Budget"];
 const EXAMPLES = ["Plan a romantic date in Seoul.", "Cheap date under ₩80,000.", "Something fun around Hongdae.", "Halal date for two.", "Rainy day activities.", "Surprise me."];
 const QUICK: [string, string, string][] = [["Plan a date", "plan", "💞"], ["Explore nearby", "explore:", "🧭"], ["Find halal places", "explore:halal", "🥘"], ["Find vegan places", "explore:vegan", "🌱"], ["Find restaurants", "explore:restaurant", "🍽"], ["Find cafes", "explore:cafe", "☕"], ["Find activities", "explore:activity", "🎯"], ["Prayer locations", "explore:prayer", "🕌"], ["Open map", "map", "🗺"]];
@@ -25,9 +27,12 @@ const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${Stri
 
 export function App() {
   const { s, ready, update, track, reload, logout } = useStore();
+  const tasks = useTasks(s.user?.email ?? "guest");
   const [tab, setTab] = useState<Tab>("home"); const [openId, setOpenId] = useState<string | null>(null); const [planner, setPlanner] = useState<{ text: string } | null>(null);
+  const [taskDialog, setTaskDialog] = useState(false), [palette, setPalette] = useState(false);
   const [info, setInfo] = useState<any>(null); const [exploreInit, setExploreInit] = useState("");
-  useEffect(() => { document.documentElement.classList.toggle("dark", s.dark); document.documentElement.style.setProperty("--brand", BRAND_COLORS[s.brand] ?? BRAND_COLORS.Coral); }, [s.dark, s.brand]);
+  useEffect(() => { document.documentElement.classList.toggle("dark", s.dark); document.documentElement.classList.toggle("light", !s.dark); document.documentElement.style.setProperty("--brand", BRAND_COLORS[s.brand] ?? BRAND_COLORS.Coral); }, [s.dark, s.brand]);
+  useEffect(() => { const key = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette((v) => !v); } if (e.key === "Escape") { setPalette(false); setTaskDialog(false); } }; window.addEventListener("keydown", key); return () => window.removeEventListener("keydown", key); }, []);
   useEffect(() => { if (s.session) api("/api/context?date=" + todayISO()).then(setInfo).catch(() => setInfo(null)); }, [s.session]);
   useEffect(() => {
     try {
@@ -60,50 +65,19 @@ export function App() {
   const open = s.plans.find((p) => p.id === openId);
   const go = (a: string) => { if (a === "plan") setPlanner({ text: "" }); else if (a.startsWith("explore:")) { setExploreInit(a.slice(8)); setTab("explore"); setOpenId(null); } else { setTab(a as Tab); setOpenId(null); } };
   const nav = (t: Tab) => { setTab(t); setOpenId(null); };
-  return (
-    <Motion>
-      {process.env.NEXT_PUBLIC_PAGES_PREVIEW === "true" && <p className="bg-warn/10 px-5 py-2 text-center text-sm text-warn">Browser preview · Demo places and estimated routes · Data saved only in this browser</p>}
-      <div className="mx-auto flex min-h-screen max-w-6xl">
-        <aside className="sticky top-0 hidden h-screen w-52 shrink-0 flex-col gap-1 p-5 md:flex"><div className="mb-6 text-lg font-bold text-brand">{BRAND.name}</div>
-          {TABS.map(([t, l, e]) => <button key={t} onClick={() => nav(t)} className={`rounded-xl px-3 py-2.5 text-left text-sm font-medium ${tab === t ? "bg-brand/10 text-brand" : "text-muted hover:bg-line/40"}`}>{e} {l}</button>)}
-          {info?.providers?.demo && <p className="mt-auto rounded-xl bg-warn/10 p-3 text-xs text-warn">Demo data is active (mock providers). See README to connect real APIs.</p>}</aside>
-        <main className="min-w-0 flex-1 px-5 pb-28 pt-6 md:pb-10">
-          <div className="mb-4 flex items-center justify-end gap-2">
-            {s.user?.isAdmin && <a className="btn-ghost !px-3 !py-1.5" href="/admin">{profile.lang === "ko" ? "관리자" : "Admin"}</a>}
-            <LanguageToggle
-              lang={profile.lang}
-              onChange={(newLang) => {
-                setProfile({ ...profile, lang: newLang });
-                try { localStorage.setItem("dateflow:lang", newLang); } catch {}
-              }}
-            />
-            {process.env.NEXT_PUBLIC_PAGES_PREVIEW !== "true" && <Bell />}
-          </div>
-          <AnimatePresence mode="wait"><Fade k={tab + openId}>
-            {tab === "home" && !open && <Home s={s} info={info} go={go} openPlan={(id) => { setTab("plans"); setOpenId(id); }} start={(t) => setPlanner({ text: t })} />}
-            {tab === "plans" && !open && <Plans plans={s.plans} openPlan={setOpenId} remove={(id) => update((x) => ({ ...x, plans: x.plans.filter((p) => p.id !== id) }))} leave={async (id) => { await api(`/api/plans/${id}/share`, undefined, "DELETE"); update((x) => ({ ...x, plans: x.plans.filter((p) => p.id !== id) })); }} create={() => setPlanner({ text: "" })} manual={async () => { const r = await api("/api/recompute", { itinerary: { id: Math.random().toString(36).slice(2), title: "My plan", date: todayISO(), startTime: toMin("10:00"), endTime: toMin("20:00"), party: 2, budget: profile.defaultBudget, pace: profile.pace, transport: profile.transport, lessWalking: profile.mobility !== "normal", vibes: [], items: [], status: "upcoming" }, profile }); savePlan(r.itinerary); setOpenId(r.itinerary.id); track("itinerary_created"); }} />}
-            {open && <PlanView plan={open} profile={profile} info={info} track={track} onBack={() => setOpenId(null)} onUpdate={savePlan} onLeave={() => { setOpenId(null); update((x) => ({ ...x, plans: x.plans.filter((p) => p.id !== open.id) })); reload(); }}
-              onFinish={async (p) => {
-                const finishedPlan: Itinerary = { ...p, status: "past" };
-                savePlan(finishedPlan);
-                update((x) => ({ ...x, plans: x.plans.map((o) => (o.id === p.id ? finishedPlan : o)), history: [...new Set([...x.history, ...p.stops.map((s2) => s2.place.id)])] }));
-                track("itinerary_completed");
-                try { await api("/api/plans", finishedPlan, "PUT"); } catch {}
-              }}
-              feedback={s.feedback} setFeedback={(k, v) => update((x) => ({ ...x, feedback: { ...x.feedback, [k]: v } }))}
-              saveMemory={(p) => update((x) => ({ ...x, memories: [...new Set([...x.memories, `Enjoyed ${p.vibes.join("/") || "a mixed"} day in ${p.area ?? "Seoul"}`, ...p.stops.filter((s2) => x.feedback[s2.place.id] === "loved").map((s2) => `Loved ${s2.place.name}`)])] }))} />}
-            {tab === "explore" && <Explore key={exploreInit} init={exploreInit} profile={profile} plans={s.plans} saved={s.savedPlaces} onSave={(p) => update((x) => ({ ...x, savedPlaces: x.savedPlaces.some((q) => q.id === p.id) ? x.savedPlaces.filter((q) => q.id !== p.id) : [...x.savedPlaces, p] }))}
-              onAdd={async (p, planId) => { const pl = s.plans.find((x) => x.id === planId)!; const { mkItem, stripDerived } = await import("@/lib/engine/compute"); const inp = stripDerived(pl); inp.items.push(mkItem(p)); const r = await api("/api/recompute", { itinerary: inp, profile }); savePlan(r.itinerary); track("place_added"); }} />}
-            {tab === "map" && <MapTab plan={s.plans.find((p) => p.status === "active") ?? s.plans[0]} saved={s.savedPlaces} naverId={info?.naverMapClientId} />}
-            {tab === "profile" && <ProfileTab s={s} profile={profile} setProfile={setProfile} update={update} logout={logout} reload={reload} />}
-          </Fade></AnimatePresence>
-        </main>
-      </div>
-      <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-        {TABS.map(([t, l, e]) => <button key={t} onClick={() => nav(t)} className={`py-2.5 text-[11px] font-medium ${tab === t ? "text-brand" : "text-muted"}`}><div className="text-lg">{e}</div>{l}</button>)}</nav>
-      <AnimatePresence>{planner && <Planner init={planner.text} profile={profile} history={s.history} plans={s.plans} onClose={() => setPlanner(null)}
-        onDone={(p) => { savePlan(p); track("ai_plan_generated"); track("itinerary_created"); setPlanner(null); setTab("plans"); setOpenId(p.id); }} />}</AnimatePresence>
-    </Motion>);
+  const start = (text = "") => setPlanner({ text });
+  const setTheme = (theme: ThemePreference) => update((x) => ({ ...x, theme, dark: theme === "system" ? window.matchMedia("(prefers-color-scheme: dark)").matches : theme === "dark" }));
+  const content = open ? <PlanView plan={open} profile={profile} info={info} track={track} onBack={() => setOpenId(null)} onUpdate={savePlan} onLeave={() => { setOpenId(null); update((x) => ({ ...x, plans: x.plans.filter((p) => p.id !== open.id) })); reload(); }} onFinish={async (p) => { const finishedPlan: Itinerary = { ...p, status: "past" }; savePlan(finishedPlan); update((x) => ({ ...x, plans: x.plans.map((o) => (o.id === p.id ? finishedPlan : o)), history: [...new Set([...x.history, ...p.stops.map((s2) => s2.place.id)])] })); track("itinerary_completed"); try { await api("/api/plans", finishedPlan, "PUT"); } catch {} }} feedback={s.feedback} setFeedback={(k, v) => update((x) => ({ ...x, feedback: { ...x.feedback, [k]: v } }))} saveMemory={(p) => update((x) => ({ ...x, memories: [...new Set([...x.memories, `Enjoyed ${p.vibes.join("/") || "a mixed"} day in ${p.area ?? "Seoul"}`, ...p.stops.filter((s2) => x.feedback[s2.place.id] === "loved").map((s2) => `Loved ${s2.place.name}`)])] }))} />
+    : tab === "home" ? <Dashboard s={s} taskStore={tasks} info={info} nav={nav} start={start} addTask={() => setTaskDialog(true)} openPlan={(id) => { setTab("plans"); setOpenId(id); }} />
+    : tab === "tasks" ? <TasksView store={tasks} add={() => setTaskDialog(true)} />
+    : tab === "calendar" ? <CalendarView s={s} tasks={tasks.tasks} openPlan={(id) => { setTab("plans"); setOpenId(id); }} addTask={() => setTaskDialog(true)} />
+    : tab === "analytics" ? <AnalyticsView s={s} tasks={tasks.tasks} />
+    : tab === "plans" ? <Plans plans={s.plans} openPlan={setOpenId} remove={(id) => update((x) => ({ ...x, plans: x.plans.filter((p) => p.id !== id) }))} leave={async (id) => { await api(`/api/plans/${id}/share`, undefined, "DELETE"); update((x) => ({ ...x, plans: x.plans.filter((p) => p.id !== id) })); }} create={() => start()} manual={async () => { const r = await api("/api/recompute", { itinerary: { id: Math.random().toString(36).slice(2), title: "My plan", date: todayISO(), startTime: toMin("10:00"), endTime: toMin("20:00"), party: 2, budget: profile.defaultBudget, pace: profile.pace, transport: profile.transport, lessWalking: profile.mobility !== "normal", vibes: [], items: [], status: "upcoming" }, profile }); savePlan(r.itinerary); setOpenId(r.itinerary.id); track("itinerary_created"); }} />
+    : tab === "explore" ? <Explore key={exploreInit} init={exploreInit} profile={profile} plans={s.plans} saved={s.savedPlaces} onSave={(p) => update((x) => ({ ...x, savedPlaces: x.savedPlaces.some((q) => q.id === p.id) ? x.savedPlaces.filter((q) => q.id !== p.id) : [...x.savedPlaces, p] }))} onAdd={async (p, planId) => { const pl = s.plans.find((x) => x.id === planId)!; const { mkItem, stripDerived } = await import("@/lib/engine/compute"); const inp = stripDerived(pl); inp.items.push(mkItem(p)); const r = await api("/api/recompute", { itinerary: inp, profile }); savePlan(r.itinerary); track("place_added"); }} />
+    : tab === "map" ? <MapTab plan={s.plans.find((p) => p.status === "active") ?? s.plans[0]} saved={s.savedPlaces} naverId={info?.naverMapClientId} />
+    : <ProfileTab s={s} profile={profile} setProfile={setProfile} update={update} logout={logout} reload={reload} />;
+  const overlayOpen = !!(planner || taskDialog || palette);
+  return <Motion>{process.env.NEXT_PUBLIC_PAGES_PREVIEW === "true" && <div className="preview-banner">Browser preview · Demo places and estimated routes · Data saved only in this browser</div>}<div aria-hidden={overlayOpen}><Workspace s={s} tab={tab} nav={nav} start={() => start()} addTask={() => setTaskDialog(true)} search={() => setPalette(true)} theme={() => setTheme(s.theme === "dark" ? "light" : s.theme === "light" ? "system" : "dark")} tools={<>{s.user?.isAdmin && <a className="icon-button" title="Admin" href="/admin">A</a>}<LanguageToggle lang={profile.lang} onChange={(newLang) => { setProfile({ ...profile, lang: newLang }); try { localStorage.setItem("dateflow:lang", newLang); } catch {} }} />{process.env.NEXT_PUBLIC_PAGES_PREVIEW !== "true" && <Bell />}</>}><AnimatePresence mode="wait"><Fade k={tab + openId}>{content}</Fade></AnimatePresence></Workspace></div><AnimatePresence>{planner && <Planner init={planner.text} profile={profile} history={s.history} plans={s.plans} onClose={() => setPlanner(null)} onDone={(p) => { savePlan(p); track("ai_plan_generated"); track("itinerary_created"); setPlanner(null); setTab("plans"); setOpenId(p.id); }} />}{taskDialog && <TaskDialog onClose={() => setTaskDialog(false)} add={tasks.add} />}{palette && <CommandPalette s={s} tasks={tasks.tasks} nav={nav} start={() => start()} addTask={() => setTaskDialog(true)} openPlan={(id) => { setTab("plans"); setOpenId(id); }} onClose={() => setPalette(false)} />}</AnimatePresence></Motion>;
 }
 
 function Home({ s, info, go, openPlan, start }: { s: ReturnType<typeof useStore>["s"]; info: any; go: (a: string) => void; openPlan: (id: string) => void; start: (t: string) => void }) {
@@ -560,7 +534,7 @@ function ProfileTab({ s, profile, setProfile, update, logout, reload }: { s: Ret
         </button>
       </div>
     </section>
-    <section className="card p-5"><h2 className="font-semibold">Appearance</h2><div className="mt-2"><Toggle on={s.dark} set={(v) => update((x) => ({ ...x, dark: v }))} label="Dark mode" /></div><div className="mt-2 flex gap-2">{Object.entries(BRAND_COLORS).map(([n, c]) => <button key={n} aria-label={n} onClick={() => update((x) => ({ ...x, brand: n }))} className={`h-8 w-8 rounded-full border-2 ${s.brand === n ? "border-ink" : "border-transparent"}`} style={{ background: `rgb(${c})` }} />)}</div></section>
+    <section className="card p-5"><h2 className="font-semibold">Appearance</h2><p className="mt-2 text-xs text-muted">Choose how Dayflow looks on this device.</p><div className="mt-3 flex flex-wrap gap-2">{(["dark", "light", "system"] as const).map((theme) => <button key={theme} aria-pressed={(s.theme ?? (s.dark ? "dark" : "light")) === theme} onClick={() => update((x) => ({ ...x, theme, dark: theme === "system" ? window.matchMedia("(prefers-color-scheme: dark)").matches : theme === "dark" }))} className={`chip capitalize ${(s.theme ?? (s.dark ? "dark" : "light")) === theme ? "chip-on" : ""}`}>{theme}</button>)}</div><p className="mt-4 text-xs text-muted">Accent color</p><div className="mt-2 flex gap-2">{Object.entries(BRAND_COLORS).map(([n, c]) => <button key={n} aria-label={`${n} accent`} title={`${n} accent`} aria-pressed={s.brand === n} onClick={() => update((x) => ({ ...x, brand: n }))} className={`h-8 w-8 rounded-full border-2 ${s.brand === n ? "border-ink" : "border-transparent"}`} style={{ background: `rgb(${c})` }} />)}</div></section>
     <section className="card p-5"><h2 className="font-semibold">Notifications & privacy</h2><div className="divide-y divide-line">{process.env.NEXT_PUBLIC_PAGES_PREVIEW !== "true" && <Toggle on={profile.notifications} set={(v) => setProfile({ ...profile, notifications: v })} label="Useful notifications only" />}<Toggle on={profile.consentSensitive} set={(v) => setProfile({ ...profile, consentSensitive: v })} label="Remember dietary/religious settings" hint={process.env.NEXT_PUBLIC_PAGES_PREVIEW === "true" ? "Saved in this browser, without encryption. Off = kept only for this session" : "Saved encrypted on the server. Off = kept only for this session"} /></div>
       {s.memories.length > 0 && <div className="mt-3 text-sm"><b>Memories</b><ul className="mt-1 list-disc pl-5 text-muted">{s.memories.map((m) => <li key={m}>{m}</li>)}</ul><button className="mt-1 text-xs text-bad" onClick={() => update((x) => ({ ...x, memories: [], history: [] }))}>Clear memories & history</button></div>}
       <div className="mt-4 flex flex-wrap gap-2"><button className="btn-ghost" onClick={exportData}>Export my data</button><button className="btn-ghost" onClick={logout}>Log out</button>

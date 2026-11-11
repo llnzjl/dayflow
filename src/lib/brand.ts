@@ -1,3 +1,4 @@
 // Change branding in ONE place.
-export const BRAND = { name: "DateFlow", tagline: "Plan your day once. DateFlow keeps it realistic, affordable and updated." };
-export const BRAND_COLORS: Record<string, string> = { Coral: "217 72 56", Indigo: "79 70 229", Forest: "22 120 80", Plum: "168 56 120" };
+export const BRAND = { name: "DAYFLOW", tagline: "Make every day flow." };
+// Keep the existing preference keys valid while making violet the default look.
+export const BRAND_COLORS: Record<string, string> = { Coral: "139 92 246", Indigo: "34 211 238", Forest: "52 211 153", Plum: "185 163 255" };

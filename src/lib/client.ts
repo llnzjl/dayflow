@@ -2,10 +2,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Itinerary, Place, Profile } from "./types";
 
+export type ThemePreference = "dark" | "light" | "system";
 export interface Store { session: boolean; user: { name: string; email: string; isAdmin: boolean } | null; profile: Profile | null; plans: Itinerary[]; history: string[];
-  savedPlaces: Place[]; feedback: Record<string, string>; memories: string[]; onboarded: boolean; dark: boolean; brand: string }
+  savedPlaces: Place[]; feedback: Record<string, string>; memories: string[]; onboarded: boolean; dark: boolean; theme: ThemePreference; brand: string }
 const PREF = "dateflow:prefs";
-const EMPTY: Store = { session: false, user: null, profile: null, plans: [], history: [], savedPlaces: [], feedback: {}, memories: [], onboarded: false, dark: false, brand: "Coral" };
+const EMPTY: Store = { session: false, user: null, profile: null, plans: [], history: [], savedPlaces: [], feedback: {}, memories: [], onboarded: false, dark: true, theme: "dark", brand: "Coral" };
 
 export async function api<T = any>(url: string, body?: unknown, method?: string): Promise<T> {
   if (process.env.NEXT_PUBLIC_PAGES_PREVIEW === "true") {
@@ -36,8 +37,9 @@ export function useStore() {
       setS((p) => ({ ...p, session: true, user: me.user, profile, plans: pl.plans, history: st.history, savedPlaces: st.savedPlaces, feedback: st.feedback, memories: st.memories, onboarded: st.onboarded }));
     } catch { /* offline: keep current */ }
   }, []);
-  useEffect(() => { try { const r = JSON.parse(localStorage.getItem(PREF) || "{}"); setS((p) => ({ ...p, dark: !!r.dark, brand: r.brand || "Coral" })); } catch {} load().finally(() => setReady(true)); }, [load]);
-  useEffect(() => { if (ready) try { localStorage.setItem(PREF, JSON.stringify({ dark: s.dark, brand: s.brand })); } catch {} }, [s.dark, s.brand, ready]);
+  useEffect(() => { try { const r = JSON.parse(localStorage.getItem(PREF) || "{}"); const theme = ["dark", "light", "system"].includes(r.theme) ? r.theme : (r.dark === false ? "light" : "dark"); const dark = theme === "system" ? window.matchMedia("(prefers-color-scheme: dark)").matches : theme === "dark"; setS((p) => ({ ...p, theme, dark, brand: r.brand || "Coral" })); } catch {} load().finally(() => setReady(true)); }, [load]);
+  useEffect(() => { if (s.theme !== "system") return; const media = window.matchMedia("(prefers-color-scheme: dark)"), change = () => setS((p) => ({ ...p, dark: media.matches })); media.addEventListener("change", change); return () => media.removeEventListener("change", change); }, [s.theme]);
+  useEffect(() => { if (ready) try { localStorage.setItem(PREF, JSON.stringify({ dark: s.dark, theme: s.theme, brand: s.brand })); } catch {} }, [s.dark, s.theme, s.brand, ready]);
   // push profile/state (sensitive diet only if the user consented)
   useEffect(() => {
     if (!loaded.current || !s.session || !s.profile) return;
@@ -70,6 +72,6 @@ export function useStore() {
     const iv = setInterval(tick, 20000); document.addEventListener("visibilitychange", tick); return () => { clearInterval(iv); document.removeEventListener("visibilitychange", tick); };
   }, [s.session]);
   const track = useCallback((name: string) => { api("/api/events", { name }).catch(() => {}); }, []);
-  const logout = useCallback(async () => { await api("/api/auth/logout", {}); loaded.current = false; setS((p) => ({ ...EMPTY, dark: p.dark, brand: p.brand })); }, []);
+  const logout = useCallback(async () => { await api("/api/auth/logout", {}); loaded.current = false; setS((p) => ({ ...EMPTY, dark: p.dark, theme: p.theme, brand: p.brand })); }, []);
   return { s, ready, update, track, reload: load, logout };
 }

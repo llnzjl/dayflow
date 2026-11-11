@@ -90,7 +90,7 @@ describe("UI journey", () => {
     expect(screen.getByText(/Where would you want to end the date\?/)).toBeInTheDocument();
 
     // Select Suwon
-    await u.click(screen.getByText(/Suwon/));
+    await u.click(screen.getByRole("button", { name: /Suwon \(수원\)/ }));
     expect(screen.getByText("Suwon Station Meeting Plaza")).toBeInTheDocument();
     expect(screen.getByText("Banghwasuryujeong Night View Pavilion")).toBeInTheDocument();
 
